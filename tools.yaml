@@ -1,0 +1,323 @@
+openapi: 3.1.0
+info:
+  title: Odoo Integration Flask API
+  description: API for interacting with Odoo through Watsonx Orchestrate. Includes endpoints for customer, product, invoice, and PO validation tasks.
+  version: 1.0.0
+
+servers:
+  - url: https://master-specially-dane.ngrok-free.app/
+
+
+paths:
+  
+  /validate_po:
+    post:
+      summary: Validate Invoice Against Purchase Order
+      description: Validates invoice items against corresponding PO in ERP system by matching PO Number, Description, HSN Code, and Rate
+      operationId: validatePO
+      tags:
+        - Invoice Processing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - po_number
+                - items
+              properties:
+                po_number:
+                  type: string
+                  description: Purchase Order number to validate against
+                  example: PO-12345
+                items:
+                  type: array
+                  description: List of invoice items to validate
+                  minItems: 1
+                  items:
+                    type: object
+                    required:
+                      - description
+                      - hsn_code
+                      - rate
+                      - quantity
+                      - amount
+                    properties:
+                      description:
+                        type: string
+                        description: Item description/name
+                        example: Computer Mouse
+                      hsn_code:
+                        type: string
+                        description: HSN/SAC code
+                        example: "8471"
+                      quantity:
+                        type: integer
+                        description: Quantity of items
+                        minimum: 1
+                        example: 5
+                      rate:
+                        type: number
+                        description: Rate per unit
+                        minimum: 0
+                        example: 250.00
+                      amount:
+                        type: number
+                        description: Total amount (optional)
+                        example: 1250.00
+      responses:
+        '200':
+          description: Validation completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  validation_passed:
+                    type: boolean
+                    description: True if all items match PO, false otherwise
+                    example: true
+                  po_number:
+                    type: string
+                    example: PO-12345
+                  message:
+                    type: string
+                    example: All items validated successfully
+                  matched_items:
+                    type: integer
+                    description: Count of matched items
+                    example: 2
+                  unmatched_items:
+                    type: integer
+                    description: Count of unmatched items
+                    example: 0
+                  validation_details:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        item:
+                          type: string
+                          description: Item description
+                        status:
+                          type: string
+                          enum: [matched, unmatched]
+                        po_line:
+                          type: string
+                          description: Matching PO line (if matched)
+                        hsn_code:
+                          type: string
+                        rate_invoice:
+                          type: number
+                        rate_po:
+                          type: number
+                        rate_match:
+                          type: boolean
+                        reason:
+                          type: string
+                          description: Reason for mismatch (if unmatched)
+
+  /get_customer_id:
+    get:
+      summary: Get customer ID by name
+      operationId: getCustomerId
+      parameters:
+        - name: coustomer_name
+          in: query
+          required: true
+          schema:
+            type: string
+            example: "John Doe"
+      responses:
+        "200":
+          description: Customer ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+
+  /create_customer:
+    post:
+      summary: Create a new customer in Odoo
+      operationId: createCustomer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: "John Doe"
+                email:
+                  type: string
+                  example: "john@example.com"
+                phone:
+                  type: string
+                  example: "9876543210"
+                street:
+                  type: string
+                  example: "123 Market Street"
+                city:
+                  type: string
+                  example: "Pune"
+                country_code:
+                  type: string
+                  example: "IN"
+      responses:
+        "200":
+          description: Customer created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+
+  /get_product_ids:
+    post:
+      summary: Retrieve product IDs for given product names
+      operationId: getProductIds
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                product_names:
+                  type: array
+                  items:
+                    type: string
+                  example: ["Laptop", "Mouse"]
+      responses:
+        "200":
+          description: Product IDs retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+
+  /create_new_product:
+    post:
+      summary: Create new products in Odoo
+      operationId: createNewProduct
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                product:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      standard_price:
+                        type: number
+                      list_price:
+                        type: number
+                      measurement_unit:
+                        type: string
+                      product_type:
+                        type: string
+                  example:
+                    - name: "Laptop"
+                      standard_price: 600
+                      list_price: 800
+                      measurement_unit: "unit"
+                      product_type: "consumable"
+      responses:
+        "200":
+          description: Product creation response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    type: array
+                    items:
+                      type: object
+
+  /create_invoice:
+    post:
+      summary: Create a new invoice in Odoo
+      operationId: createInvoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - customer_id
+                - invoice_date
+                - invoice_items
+                - items_qty
+                - price_per_qty
+                - invoice_number
+              properties:
+                customer_id:
+                  type: integer
+                  description: Odoo customer (partner) id
+                invoice_date:
+                  type: string
+                  format: date
+                  example: "2025-09-21"
+                invoice_number:
+                  type: string
+                  example: "INV-001"
+                  description: external invoice number
+                invoice_items:
+                  type: array
+                  items:
+                    type: integer
+                  description: List of product IDs
+                  minItems: 1
+                items_qty:
+                  type: array
+                  items:
+                    type: integer
+                  description: Quantities for each invoice_items entry (same length)
+                  minItems: 1
+                price_per_qty:
+                  type: array
+                  items:
+                    type: number
+                  description: Price per unit corresponding to each invoice_items entry (same length)
+                  minItems: 1
+            example:
+              customer_id: 36
+              invoice_date: "2025-09-21"
+              invoice_number: "INV-001"
+              invoice_items: [1]
+              items_qty: [2]
+              price_per_qty: [100]
+      responses:
+        "200":
+          description: Invoice created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invoice_number:
+                    type: string
